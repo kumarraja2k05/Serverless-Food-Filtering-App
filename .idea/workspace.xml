@@ -4,7 +4,29 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="bd46dd9a-060a-4ad2-bd61-034566094ca9" name="Changes" comment="" />
+    <list default="true" id="bd46dd9a-060a-4ad2-bd61-034566094ca9" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/lambda_handlers/manager_function/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lambda_handlers/start_app/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/async_function/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/async_function/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/async_function/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/async_function/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/async_function/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/async_function/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/filter_food/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/create_filter_food/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/filter_food/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/create_filter_food/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/filter_food/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/create_filter_food/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/get_filtered_food/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/delete_filter_food/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/get_filtered_food/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/get_filtered_food/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/get_filtered_food/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/get_filtered_food/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/manager_function/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/get_filtered_food/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/manager_function/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/manager_function/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/manager_function/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/lambda_handlers/manager_function/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/samconfig.toml" beforeDir="false" afterPath="$PROJECT_DIR$/samconfig.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/template.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/template.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/unit/test_handler.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/unit/test_handler.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/update_filter_food/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/update_filter_food/app.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/update_filter_food/requirements.txt" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -29,12 +51,8 @@
               <option name="branches">
                 <list>
                   <RecentBranch>
-                    <option name="branchName" value="test" />
-                    <option name="lastUsedInstant" value="1685216570" />
-                  </RecentBranch>
-                  <RecentBranch>
-                    <option name="branchName" value="v3" />
-                    <option name="lastUsedInstant" value="1685216569" />
+                    <option name="branchName" value="master" />
+                    <option name="lastUsedInstant" value="1685217633" />
                   </RecentBranch>
                 </list>
               </option>
@@ -67,6 +85,7 @@
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\kraja\Watchguard Work\POC\Food Consumption System\food-selection-system\lambda_handlers" />
+      <recent name="C:\Users\kraja\Watchguard Work\POC\Food Consumption System\food-selection-system\foodenv" />
       <recent name="C:\Users\kraja\Watchguard Work\POC\Food Consumption System\food-selection-system" />
     </key>
   </component>

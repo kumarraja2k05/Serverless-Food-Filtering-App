@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from manager_function import app
+from lambda_handlers.manager_function import app
 
 
 @pytest.fixture()
