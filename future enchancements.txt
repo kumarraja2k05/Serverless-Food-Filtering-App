@@ -1,0 +1,6 @@
+json.loads() should be inside try and catch
+
+ultra jason  (u-json)
+
+sns and sqs client should have repr class
+
