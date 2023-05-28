@@ -1,0 +1,474 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  food-selection-system
+
+  Sample SAM Template for food-selection-system
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+    MemorySize: 128
+
+Parameters:
+  deploymentStage:
+    Type: String
+    Default: Dev
+
+Resources:
+  FoodSNS:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: FoodSelection
+
+  FoodSQS:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: FoodSelectionSQS
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SqsDlQueue.Arn
+        maxReceiveCount: 5
+
+  SqsDlQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: DLQSQS
+
+  AsyncSQS:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: AsyncCacheSQS
+
+  FoodQueueToFoodSnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt FoodSQS.Arn
+      Protocol: sqs
+      RawMessageDelivery: true
+      TopicArn: !Ref FoodSNS
+
+  SQSQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref FoodSQS
+      PolicyDocument:
+        Statement:
+          Effect: Allow
+          Principal: {
+            Service: "sns.amazonaws.com"
+          }
+          Action: "sqs:SendMessage"
+          Resource: !GetAtt FoodSQS.Arn
+          Condition:
+            ArnEquals:
+              "aws:SourceArn": !Ref FoodSNS
+
+  AsyncSQSQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref AsyncSQS
+      PolicyDocument:
+        Statement:
+          Effect: Allow
+          Principal: {
+             Service: "lambda.amazonaws.com"
+          }
+          Action: "sqs:SendMessage"
+          Resource: !GetAtt AsyncSQS.Arn
+
+  ServerlessApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Description: Entry Point for the application
+      StageName: !Ref deploymentStage
+
+  StartAppFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_handlers\start_app
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          SNStopic: !Ref FoodSNS
+      Policies:
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt FoodSNS.TopicName
+      Events:
+        FoodAdd:
+          Type: Api
+          Properties:
+            Path: /manage
+            Method: post
+
+  HTTPMethodManagerFuncion:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: lambda_handlers/manager_function/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          SQSQueue: !Ref FoodSQS
+          Region: !Ref AWS::Region
+          Logical_ID: !Ref ServerlessApi
+          API_URL: !Sub "https://${ServerlessApi}.execute-api.${AWS::Region}.amazonaws.com/Dev/food"
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt FoodSQS.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt FoodSQS.QueueName
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt FoodSQS.Arn
+      Events:
+        SqsJobQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt FoodSQS.Arn
+            BatchSize: 1
+            FilterCriteria:
+              Filters:
+                - Pattern: '{ "body" : { "item_name" : [ "pizza" ] } }'
+
+  PostFilterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_handlers/create_filter_food/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref FoodDBTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FoodDBTable
+      Events:
+        FoodApiEvent:
+          Type: Api
+          Properties:
+            Path: /food
+            Method: post
+            RestApiId: !Ref ServerlessApi
+
+  PutFilterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_handlers/update_filter_food/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref FoodDBTable
+          REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
+          REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
+          AsyncSQSQueue: !Ref AsyncSQS
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FoodDBTable
+        - AmazonSQSFullAccess
+        - AmazonElastiCacheFullAccess
+      Events:
+        FoodApiEvent:
+          Type: Api
+          Properties:
+            Path: /food
+            Method: put
+            RestApiId: !Ref ServerlessApi
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-045a3e0c70d593a9e
+          - sg-ab209c8d
+        SubnetIds:
+          - subnet-c7c471bf
+          - subnet-232afd69
+          - subnet-9065e1cd
+          - subnet-24c4f80f
+
+  DeleteFilterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_handlers/delete_filter_food/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref FoodDBTable
+          REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
+          REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
+          AsyncSQSQueue: !Ref AsyncSQS
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FoodDBTable
+        - AmazonSQSFullAccess
+        - AmazonElastiCacheFullAccess
+      Events:
+        FoodApiEvent:
+          Type: Api
+          Properties:
+            Path: /food
+            Method: delete
+            RestApiId: !Ref ServerlessApi
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-045a3e0c70d593a9e
+          - sg-ab209c8d
+        SubnetIds:
+          - subnet-c7c471bf
+          - subnet-232afd69
+          - subnet-9065e1cd
+          - subnet-24c4f80f
+
+  PostFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PostFilterFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+
+  PutFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PutFilterFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+
+  DeleteFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DeleteFilterFunction
+      Principal: apigateway.amazonaws.com
+
+  FilterFoodItemGetFuncion:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: lambda_handlers/get_filtered_food/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref FoodDBTable
+          REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
+          REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
+          AsyncSQSQueue: !Ref AsyncSQS
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FoodDBTable
+        - AmazonSQSFullAccess
+        - AmazonElastiCacheFullAccess
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-045a3e0c70d593a9e
+          - sg-ab209c8d
+        SubnetIds:
+          - subnet-c7c471bf
+          - subnet-232afd69
+          - subnet-9065e1cd
+          - subnet-24c4f80f
+      Events:
+        FoodGet:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /filtered-food
+            Method: get
+
+  AsyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_handlers/async_function/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          SQSQueue: !Ref AsyncSQS
+          REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
+          REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt AsyncSQS.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt AsyncSQS.QueueName
+        - AmazonElastiCacheFullAccess
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-045a3e0c70d593a9e
+          - sg-ab209c8d
+        SubnetIds:
+          - subnet-c7c471bf
+          - subnet-232afd69
+          - subnet-9065e1cd
+          - subnet-24c4f80f
+      Events:
+        SqsJobQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AsyncSQS.Arn
+            BatchSize: 1
+
+  FoodDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: FoodDBTable
+      AttributeDefinitions:
+        - AttributeName: food_item_id
+          AttributeType: N
+        - AttributeName: category
+          AttributeType: S
+      KeySchema:
+        - AttributeName: food_item_id
+          KeyType: HASH
+        - AttributeName: category
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      ProvisionedThroughput:
+        ReadCapacityUnits: 0
+        WriteCapacityUnits: 0
+
+  ElasticacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for Elasticache
+      SubnetIds:
+        - subnet-c7c471bf
+        - subnet-232afd69
+        - subnet-9065e1cd
+        - subnet-24c4f80f
+
+  ElasticacheCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheNodeType: cache.t2.micro
+      Engine: redis
+      NumCacheNodes: 1
+      VpcSecurityGroupIds:
+        - sg-045a3e0c70d593a9e
+        - sg-ab209c8d
+      CacheSubnetGroupName: !Ref ElasticacheSubnetGroup
+
+  DynamoDBEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument:
+        Statement:
+          Effect: Allow
+          Principal: "*"
+          Action: "dynamodb:*"
+          Resource: "*"
+      RouteTableIds:
+        - rtb-72515409
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
+      VpcId: vpc-b77820cf
+
+  SQSEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      PolicyDocument:
+        Statement:
+          Effect: Allow
+          Principal: "*"
+          Action: "sqs:*"
+          Resource: "*"
+      SubnetIds:
+        - subnet-c7c471bf
+        - subnet-232afd69
+        - subnet-9065e1cd
+        - subnet-24c4f80f
+      SecurityGroupIds:
+        - sg-045a3e0c70d593a9e
+        - sg-ab209c8d
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.sqs
+      VpcId: vpc-b77820cf
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  FoodItemApi:
+    Description: API Gateway endpoint URL for Prod stage for Create Food function
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/"
+  StartAppFunction:
+    Description: Function Executed at the start of the Application calling an APIGateway
+    Value: !GetAtt StartAppFunction.Arn
+  StartAppFunctionIamRole:
+    Description: Implicit IAM Role at the start of the Application
+    Value: !GetAtt StartAppFunctionRole.Arn
+  HTTPMethodManagerFuncion:
+    Description: Mange the HTTP methods according to the payload recieved
+    Value: !GetAtt HTTPMethodManagerFuncion.Arn
+  HTTPMethodManagerFuncionIamRole:
+    Description: Implicit IAM Role for Manage HTTP method
+    Value: !GetAtt HTTPMethodManagerFuncionRole.Arn
+  PostFilterFunction:
+    Description: Create the Filtered Food on basis of item
+    Value: !GetAtt PostFilterFunction.Arn
+  PostFilterFunctionIamRole:
+    Description: Implicit IAM Role created for Filter Food Function
+    Value: !GetAtt PostFilterFunctionRole.Arn
+  PutFilterFunction:
+    Description: Update the Filtered Food on basis of item
+    Value: !GetAtt PutFilterFunction.Arn
+  PutFilterFunctionIamRole:
+    Description: Implicit IAM Role for update Filter Food Function
+    Value: !GetAtt PutFilterFunctionRole.Arn
+  DeleteFilterFunction:
+    Description: Delete the Filtered Food on basis of item
+    Value: !GetAtt DeleteFilterFunction.Arn
+  DeleteFilterFunctionIamRole:
+    Description: Implicit IAM Role created for delete Filter Food Function
+    Value: !GetAtt DeleteFilterFunctionRole.Arn
+  SNStopicName:
+    Description: SNS topic name
+    Value: !GetAtt FoodSNS.TopicName
+  SNStopicARN:
+    Description: SNS topic ARN
+    Value: !Ref FoodSNS
+  SQSqueueName:
+    Description: SQS Queue Name
+    Value: !GetAtt FoodSQS.QueueName
+  SQSqueueARN:
+    Description: SQS Queue ARN
+    Value: !Ref FoodSQS
+  AsyncQueueName:
+    Description: Async SQS queue Name
+    Value: !GetAtt AsyncSQS.QueueName
+  AsyncQueueARN:
+    Description: Async SQS queue ARN
+    Value: !Ref AsyncSQS
+  FilterFoodItemGetFuncion:
+    Description: Get Filtered Food Details
+    Value: !GetAtt FilterFoodItemGetFuncion.Arn
+  FilterFoodItemGetFuncionIamRole:
+    Description: Implicit IAM Role for Get Filtered Food Function
+    Value: !GetAtt FilterFoodItemGetFuncionRole.Arn
+  AsyncFunction:
+    Description: Async SQS Function
+    Value: !GetAtt AsyncFunction.Arn
+  AsyncFunctionIamRole:
+    Description: Implicit IAM Role for Async SQS Function
+    Value: !GetAtt AsyncFunctionRole.Arn
+  ElasticacheEndpoint:
+    Description: Endpoint of the Elasticache cluster
+    Value: !GetAtt ElasticacheCluster.RedisEndpoint.Address
+  ElasticachePort:
+    Description: Port of the Elasticache cluster
+    Value: !GetAtt ElasticacheCluster.RedisEndpoint.Port

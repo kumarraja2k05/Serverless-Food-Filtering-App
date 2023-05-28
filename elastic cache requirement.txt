@@ -1,0 +1,5 @@
+elastic cache ttl for data,
+warm the elastic cache with the response if it is within the ttl
+
+logging , only provide minimum resource access, 
+dynamo db snapshot
