@@ -6,7 +6,7 @@ import requests
 QUEUE_ARN = os.getenv("SQSQueue")
 region = os.getenv("Region")
 logical_id = os.getenv("Logical_ID")
-api_url = f"https://{logical_id}.execute-api.{region}.amazonaws.com/Dev/food"
+api_url = os.getenv("API_URL")
 sqs_client = boto3.client("sqs", "us-west-2")
 
 def lambda_handler(event, context):
