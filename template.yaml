@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  food-selection-system
+  License-management-system
 
-  Sample SAM Template for food-selection-system
+  Sample SAM Template for License-selection-system
 
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
@@ -17,15 +17,15 @@ Parameters:
     Default: Dev
 
 Resources:
-  FoodSNS:
+  LicenseSNS:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: FoodSelection
+      TopicName: LicenseSelection
 
-  FoodSQS:
+  LicenseSQS:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: FoodSelectionSQS
+      QueueName: LicenseSelectionSQS
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt SqsDlQueue.Arn
         maxReceiveCount: 5
@@ -40,19 +40,19 @@ Resources:
     Properties:
       QueueName: AsyncCacheSQS
 
-  FoodQueueToFoodSnsSubscription:
+  LicenseQueueToLicenseSnsSubscription:
     Type: AWS::SNS::Subscription
     Properties:
-      Endpoint: !GetAtt FoodSQS.Arn
+      Endpoint: !GetAtt LicenseSQS.Arn
       Protocol: sqs
       RawMessageDelivery: true
-      TopicArn: !Ref FoodSNS
+      TopicArn: !Ref LicenseSNS
 
   SQSQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
       Queues:
-        - !Ref FoodSQS
+        - !Ref LicenseSQS
       PolicyDocument:
         Statement:
           Effect: Allow
@@ -60,10 +60,10 @@ Resources:
             Service: "sns.amazonaws.com"
           }
           Action: "sqs:SendMessage"
-          Resource: !GetAtt FoodSQS.Arn
+          Resource: !GetAtt LicenseSQS.Arn
           Condition:
             ArnEquals:
-              "aws:SourceArn": !Ref FoodSNS
+              "aws:SourceArn": !Ref LicenseSNS
 
   AsyncSQSQueuePolicy:
     Type: AWS::SQS::QueuePolicy
@@ -95,15 +95,15 @@ Resources:
         - x86_64
       Environment:
         Variables:
-          SNStopic: !Ref FoodSNS
+          SNStopic: !Ref LicenseSNS
       Policies:
         - SNSPublishMessagePolicy:
-            TopicName: !GetAtt FoodSNS.TopicName
+            TopicName: !GetAtt LicenseSNS.TopicName
       Events:
-        FoodAdd:
+        LicenseAdd:
           Type: Api
           Properties:
-            Path: /manage
+            Path: /fwaas/v1/inventory
             Method: post
 
   HTTPMethodManagerFuncion:
@@ -114,76 +114,74 @@ Resources:
       Runtime: python3.9
       Architectures:
         - x86_64
+      Timeout: 30
       Environment:
         Variables:
-          SQSQueue: !Ref FoodSQS
+          SQSQueue: !Ref LicenseSQS
           Region: !Ref AWS::Region
           Logical_ID: !Ref ServerlessApi
-          API_URL: !Sub "https://${ServerlessApi}.execute-api.${AWS::Region}.amazonaws.com/Dev/food"
+          API_URL: !Sub "https://${ServerlessApi}.execute-api.${AWS::Region}.amazonaws.com/Dev/fwaas/v1/inventory"
       Policies:
         - SQSPollerPolicy:
-            QueueName: !GetAtt FoodSQS.QueueName
+            QueueName: !GetAtt LicenseSQS.QueueName
         - SQSSendMessagePolicy:
-            QueueName: !GetAtt FoodSQS.QueueName
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt FoodSQS.Arn
+            QueueName: !GetAtt LicenseSQS.QueueName
       Events:
         SqsJobQueue:
           Type: SQS
           Properties:
-            Queue: !GetAtt FoodSQS.Arn
+            Queue: !GetAtt LicenseSQS.Arn
             BatchSize: 1
             FilterCriteria:
               Filters:
-                - Pattern: '{ "body" : { "item_name" : [ "pizza" ] } }'
+                - Pattern: '{ "body" : { "type": [ {"prefix": "fwaas" } ] } }'
 
   PostFilterFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambda_handlers/create_filter_food/
+      CodeUri: lambda_handlers/create_filter_License/
       Handler: app.lambda_handler
       Runtime: python3.9
       Architectures:
         - x86_64
       Environment:
         Variables:
-          TABLE_NAME: !Ref FoodDBTable
+          TABLE_NAME: !Ref LicenseDBTable
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref FoodDBTable
+            TableName: !Ref LicenseDBTable
       Events:
-        FoodApiEvent:
+        LicenseApiEvent:
           Type: Api
           Properties:
-            Path: /food
+            Path: /fwaas/v1/inventory/add
             Method: post
             RestApiId: !Ref ServerlessApi
 
   PutFilterFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambda_handlers/update_filter_food/
+      CodeUri: lambda_handlers/update_filter_License/
       Handler: app.lambda_handler
       Runtime: python3.9
       Architectures:
         - x86_64
       Environment:
         Variables:
-          TABLE_NAME: !Ref FoodDBTable
+          TABLE_NAME: !Ref LicenseDBTable
           REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
           REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
           AsyncSQSQueue: !Ref AsyncSQS
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref FoodDBTable
+            TableName: !Ref LicenseDBTable
         - AmazonSQSFullAccess
         - AmazonElastiCacheFullAccess
       Events:
-        FoodApiEvent:
+        LicenseApiEvent:
           Type: Api
           Properties:
-            Path: /food
+            Path: /fwaas/v1/inventory/update
             Method: put
             RestApiId: !Ref ServerlessApi
       VpcConfig:
@@ -199,27 +197,27 @@ Resources:
   DeleteFilterFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambda_handlers/delete_filter_food/
+      CodeUri: lambda_handlers/delete_filter_License/
       Handler: app.lambda_handler
       Runtime: python3.9
       Architectures:
         - x86_64
       Environment:
         Variables:
-          TABLE_NAME: !Ref FoodDBTable
+          TABLE_NAME: !Ref LicenseDBTable
           REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
           REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
           AsyncSQSQueue: !Ref AsyncSQS
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref FoodDBTable
+            TableName: !Ref LicenseDBTable
         - AmazonSQSFullAccess
         - AmazonElastiCacheFullAccess
       Events:
-        FoodApiEvent:
+        LicenseApiEvent:
           Type: Api
           Properties:
-            Path: /food
+            Path: /fwaas/v1/inventory/delete
             Method: delete
             RestApiId: !Ref ServerlessApi
       VpcConfig:
@@ -253,23 +251,23 @@ Resources:
       FunctionName: !Ref DeleteFilterFunction
       Principal: apigateway.amazonaws.com
 
-  FilterFoodItemGetFuncion:
+  FilterLicenseItemGetFuncion:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
-      CodeUri: lambda_handlers/get_filtered_food/
+      CodeUri: lambda_handlers/get_filtered_License/
       Handler: app.lambda_handler
       Runtime: python3.9
       Architectures:
         - x86_64
       Environment:
         Variables:
-          TABLE_NAME: !Ref FoodDBTable
+          TABLE_NAME: !Ref LicenseDBTable
           REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
           REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
           AsyncSQSQueue: !Ref AsyncSQS
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref FoodDBTable
+            TableName: !Ref LicenseDBTable
         - AmazonSQSFullAccess
         - AmazonElastiCacheFullAccess
       VpcConfig:
@@ -282,10 +280,10 @@ Resources:
           - subnet-9065e1cd
           - subnet-24c4f80f
       Events:
-        FoodGet:
+        LicenseGet:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
-            Path: /filtered-food
+            Path: /fwaas/v1/inventory
             Method: get
 
   AsyncFunction:
@@ -323,19 +321,19 @@ Resources:
             Queue: !GetAtt AsyncSQS.Arn
             BatchSize: 1
 
-  FoodDBTable:
+  LicenseDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: FoodDBTable
+      TableName: LicenseDBTable
       AttributeDefinitions:
-        - AttributeName: food_item_id
-          AttributeType: N
-        - AttributeName: category
+        - AttributeName: account_id
+          AttributeType: S
+        - AttributeName: sort_key
           AttributeType: S
       KeySchema:
-        - AttributeName: food_item_id
+        - AttributeName: account_id
           KeyType: HASH
-        - AttributeName: category
+        - AttributeName: sort_key
           KeyType: RANGE
       BillingMode: PAY_PER_REQUEST
       ProvisionedThroughput:
@@ -403,8 +401,8 @@ Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   # Find out more about other implicit resources you can reference within SAM
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  FoodItemApi:
-    Description: API Gateway endpoint URL for Prod stage for Create Food function
+  LicenseItemApi:
+    Description: API Gateway endpoint URL for Prod stage for Create License function
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/"
   StartAppFunction:
     Description: Function Executed at the start of the Application calling an APIGateway
@@ -419,47 +417,47 @@ Outputs:
     Description: Implicit IAM Role for Manage HTTP method
     Value: !GetAtt HTTPMethodManagerFuncionRole.Arn
   PostFilterFunction:
-    Description: Create the Filtered Food on basis of item
+    Description: Create the Filtered License on basis of item
     Value: !GetAtt PostFilterFunction.Arn
   PostFilterFunctionIamRole:
-    Description: Implicit IAM Role created for Filter Food Function
+    Description: Implicit IAM Role created for Filter License Function
     Value: !GetAtt PostFilterFunctionRole.Arn
   PutFilterFunction:
-    Description: Update the Filtered Food on basis of item
+    Description: Update the Filtered License on basis of item
     Value: !GetAtt PutFilterFunction.Arn
   PutFilterFunctionIamRole:
-    Description: Implicit IAM Role for update Filter Food Function
+    Description: Implicit IAM Role for update Filter License Function
     Value: !GetAtt PutFilterFunctionRole.Arn
   DeleteFilterFunction:
-    Description: Delete the Filtered Food on basis of item
+    Description: Delete the Filtered License on basis of item
     Value: !GetAtt DeleteFilterFunction.Arn
   DeleteFilterFunctionIamRole:
-    Description: Implicit IAM Role created for delete Filter Food Function
+    Description: Implicit IAM Role created for delete Filter License Function
     Value: !GetAtt DeleteFilterFunctionRole.Arn
   SNStopicName:
     Description: SNS topic name
-    Value: !GetAtt FoodSNS.TopicName
+    Value: !GetAtt LicenseSNS.TopicName
   SNStopicARN:
     Description: SNS topic ARN
-    Value: !Ref FoodSNS
+    Value: !Ref LicenseSNS
   SQSqueueName:
     Description: SQS Queue Name
-    Value: !GetAtt FoodSQS.QueueName
+    Value: !GetAtt LicenseSQS.QueueName
   SQSqueueARN:
     Description: SQS Queue ARN
-    Value: !Ref FoodSQS
+    Value: !Ref LicenseSQS
   AsyncQueueName:
     Description: Async SQS queue Name
     Value: !GetAtt AsyncSQS.QueueName
   AsyncQueueARN:
     Description: Async SQS queue ARN
     Value: !Ref AsyncSQS
-  FilterFoodItemGetFuncion:
-    Description: Get Filtered Food Details
-    Value: !GetAtt FilterFoodItemGetFuncion.Arn
-  FilterFoodItemGetFuncionIamRole:
-    Description: Implicit IAM Role for Get Filtered Food Function
-    Value: !GetAtt FilterFoodItemGetFuncionRole.Arn
+  FilterLicenseItemGetFuncion:
+    Description: Get Filtered License Details
+    Value: !GetAtt FilterLicenseItemGetFuncion.Arn
+  FilterLicenseItemGetFuncionIamRole:
+    Description: Implicit IAM Role for Get Filtered License Function
+    Value: !GetAtt FilterLicenseItemGetFuncionRole.Arn
   AsyncFunction:
     Description: Async SQS Function
     Value: !GetAtt AsyncFunction.Arn

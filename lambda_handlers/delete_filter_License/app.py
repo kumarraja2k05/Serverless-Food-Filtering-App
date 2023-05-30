@@ -15,27 +15,29 @@ def lambda_handler(event, context):
     redis_conn = Redis(host=redis_host, port=redis_port, db=0)
     print("Redis Connection Successfull!!")
     table = dynamodb.Table(table_name)
-    print("Delete New Food!!")
+    print("Delete New License!!")
     print("event body: ",event.get("body"))
     resp = event.get("body").split("&")
     print("response: ",resp)
-    food_id = (int)(resp[0].replace("id=",""))
-    request_type = resp[2].replace("request_type=","")
-    category = resp[1].replace("category=","").replace("+"," ")
-    data = {"food_item_id": food_id,"request_type":request_type, "category": category}
+    account_id = resp[0].replace("id=","")
+    serial_number = resp[1].replace("serial_number=","")
+    request_type = resp[2].replace("type=","")
+    action = resp[3].replace("action=","")
+    data = {"account_id": account_id,"serial_number":serial_number, "type": request_type, "action": action}
     print("data: ",data)
-    print("Food id to be deleted", type(food_id))
-    if redis_conn.exists(food_id):
+    print("Account id to be deleted", type(account_id))
+    if redis_conn.exists(account_id):
         print("Data found in cache")
         sqs_response = sqs_client.send_message(
             QueueUrl=ASYNC_QUEUE_ARN,
             MessageBody=json.dumps(data)
         )
         print("sqs response: ", sqs_response)
-    key = {"food_item_id": food_id, "category": data["category"]}
+    data["sort_key"] = data["serial_number"] + "#" + data["type"]
+    key = {"account_id": account_id, "sort_key": data["sort_key"]}
     record_list = table.delete_item(Key=key)
     print("Delete dynamo db records: ",record_list)
     return {
         "statusCode": 200,
-        "body": json.dumps({"msg": "SuccessFul"})
+        "body": json.dumps({"data": record_list,"msg": "SuccessFul"})
     }

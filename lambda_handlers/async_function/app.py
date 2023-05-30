@@ -11,9 +11,10 @@ def lambda_handler(event, context):
     print("event body: ", data)
     redis_conn = Redis(host=redis_host, port=redis_port, db=0)
     print("redis response: ", redis_conn)
-    if data["request_type"] == "delete":
-        redis_conn.delete(data["food_item_id"])
+    if data["action"] == "delete":
+        redis_conn.delete(data["account_id"])
         print("Deleting the cache")
     else:
         print("Cache updated successfully!!")
-        redis_conn.set(data["food_item_id"], (str)(data))
+        del data["action"]
+        redis_conn.set(data["account_id"], (str)(data))
