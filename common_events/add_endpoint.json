@@ -1,0 +1,19 @@
+{
+	"Records": [{
+		"messageId": "5f6b9ef1-9473-468c-904e-7182795e42de",
+		"receiptHandle": "AQEB2Ll7/z/l399GuV3mxwCV3KXcD+Cl5HzHLcR2W8KSsPKkAIir+ATl8eRWI5rzcn6cOFKHRtD4Jy3rBxdXdNeH+NkSaZ47rgioGZCoO/YvBN06ShkLJVlhRUKUR9x5GZLFNOcffoVL3fPwVAkyccXPdd7kS3afNacfrbYf9VLo3dR5m6WQOMM4xfPT8f5N0k9HGhsKl3cipO05yPSd3gs6okTuCV+nFZJpuSN/8vWyUrmn7orpIylAAIgUuMMEFCo7BOOltVLxyQTsblxJGZevllfhqS3prS76UWwfD9cyAwpvmiwp8/asAuMJjQ44rU6W2HeX+MJefyVggwMLBLiIw5yoOzKPgvPl4qX9i6e32zsoaEabfJaVlqAtHwGtdgXMj5jCYyrwxDnbcdrOQDvTew==",
+		"body": "{\"action\": \"add\", \"account_id\": \"ACC-100\", \"type\": \"fwaas7\", \"serial_number\": \"85DEKH\", \"friendly_name\": \"Inventory\", \"quantity\": 102, \"quantity_used\": 21, \"start_date\": \"2019-11-08T01:34:29+00:00\", \"end_date\": \"2027-11-08 01:34:29\", \"data_retention\": 97, \"is_active\": true}",
+		"attributes": {
+			"ApproximateReceiveCount": "1",
+			"AWSTraceHeader": "Root=1-6476c829-3be5417c7dfb9e9a250ce87e;Parent=15b3c8f2036999a8;Sampled=0;Lineage=e138d5a5:0",
+			"SentTimestamp": "1685506090979",
+			"SenderId": "AIDAIYLAVTDLUXBIEIX46",
+			"ApproximateFirstReceiveTimestamp": "1685506091030"
+		},
+		"messageAttributes": {},
+		"md5OfBody": "395db63becb361676f5d7424fcd6b58e",
+		"eventSource": "aws:sqs",
+		"eventSourceARN": "arn:aws:sqs:us-west-2:901414274132:LicenseSelectionSQS",
+		"awsRegion": "us-west-2"
+	}]
+}
