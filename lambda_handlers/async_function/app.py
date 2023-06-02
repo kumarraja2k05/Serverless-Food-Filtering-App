@@ -6,8 +6,9 @@ import logging
 
 redis_port = os.getenv("REDIS_PORT")
 redis_host = os.getenv("REDIS_HOST")
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger()
+
 
 def lambda_handler(event, context):
     try:
@@ -15,14 +16,14 @@ def lambda_handler(event, context):
         logging.info("Event body: ", data)
         redis_conn = Redis(host=redis_host, port=redis_port, db=0)
         logging.info("Redis connection Successful")
-        if data["action"] == "delete":
-            redis_conn.delete(data["account_id"])
-            logging.info("Deleting the cache")
+        cache_key = data.get("owner_id") + "#" + data.get("type")
+        if data.get("deleted_date"):
+            redis_conn.set(cache_key, (str)(data))
+            logging.info("Delete called and Update the cache")
         else:
+            redis_conn.set(cache_key, (str)(data))
             logging.info("Cache updated successfully!!")
-            del data["action"]
-            redis_conn.set(data["account_id"], (str)(data))
-    
+
     except ValueError as e:
         logger.error(e)
         return {

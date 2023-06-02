@@ -36,12 +36,11 @@ def lambda_handler(event, context):
         logging.info(f"Event body: {data}")
         curr_time = datetime.now()
         data["updated_at"] = curr_time.strftime("%d-%m-%Y %H:%M:%S")
-        del data["action"]
-        account_id = data["account_id"]
-        logging.info(f"License id to be updated: {account_id}")
-        if redis_conn.exists(account_id):
+        owner_id = data["owner_id"]
+        sort_key = "LIC#" + data["type"]
+        logging.info(f"License id to be updated: {owner_id}")
+        if redis_conn.exists(owner_id):
             logging.info("Data found in cache")
-            data["action"] = "update"
             sqs_response = sqs_client.send_message(
                 QueueUrl=ASYNC_QUEUE_ARN,
                 MessageBody=json.dumps(data)
@@ -50,28 +49,25 @@ def lambda_handler(event, context):
 
         resp = table.update_item(
             Key={
-                'account_id': account_id,
-                'sort_key': data["serial_number"] + "#" + data["type"]
+                'owner_id': owner_id,
+                'sort_key': sort_key
             },
-            UpdateExpression='SET quantity = :val1, data_retention = :val2, quantity_used = :val3, friendly_name = :val4, start_date = :val5, is_active = :val6, end_date = :val7',
+            UpdateExpression='SET quantity = :val1, allocated_date = :val2, quantity_used = :val3, expiry = :val4, updated_at = :val5',
             ExpressionAttributeValues={
                 ':val1': data["quantity"],
-                ':val2': data["data_retention"],
+                ':val2': data["allocated_date"],
                 ':val3': data["quantity_used"],
-                ':val4': data["friendly_name"],
-                ':val5': data["start_date"],
-                ':val6': data["is_active"],
-                ':val7': data["end_date"]
+                ':val4': data["expiry"],
+                ':val5': data["updated_at"]
             }
         )
         logging.info(f"Update response value is: {resp}")
-        record_list = table.query(KeyConditionExpression="account_id=:pk", ExpressionAttributeValues={':pk': account_id})[
-            'Items']
-        res = decimal_convert(record_list)
-        logging.info(f"Updated dynamo db records: {res}")
+        record_list = table.query(KeyConditionExpression="owner_id=:pk and sort_key=:sk",ExpressionAttributeValues={':pk': owner_id, ':sk': sort_key})['Items']
+        converted_data = decimal_convert(record_list)
+        logging.info(f"Updated dynamo db records: {converted_data}")
         return {
             "statusCode": 200,
-            "body": json.dumps({"data": res, "msg": "SuccessFul"})
+            "body": json.dumps({"data": converted_data, "msg": "SuccessFul"})
         }
     
     except ValueError as e:

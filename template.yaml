@@ -132,9 +132,9 @@ Resources:
           Properties:
             Queue: !GetAtt LicenseSQS.Arn
             BatchSize: 1
-            FilterCriteria:
-              Filters:
-                - Pattern: '{ "body" : { "type": [ {"prefix": "fwaas" } ] } }'
+#            FilterCriteria:
+#              Filters:
+#                - Pattern: '{ "body" : { "type": [ {"prefix": "fwaas" } ] } }'
 
   PostFilterFunction:
     Type: AWS::Serverless::Function
@@ -147,43 +147,21 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref LicenseDBTable
+          REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
+          REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
+          AsyncSQSQueue: !Ref AsyncSQS
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref LicenseDBTable
+        - AmazonSQSFullAccess
+        - AmazonElastiCacheFullAccess
       Events:
         LicenseApiEvent:
           Type: Api
           Properties:
-            Path: /fwaas/v1/inventory/add
+            Path: /fwaas/v1/inventory
             Method: post
             RestApiId: !Ref ServerlessApi
-
-  PutFilterFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda_handlers/update_filter_License/
-      Handler: app.lambda_handler
-      Runtime: python3.9
-      Architectures:
-        - x86_64
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref LicenseDBTable
-          REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
-          REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
-          AsyncSQSQueue: !Ref AsyncSQS
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref LicenseDBTable
-        - AmazonSQSFullAccess
-        - AmazonElastiCacheFullAccess
-      Events:
-        LicenseApiEvent:
-          Type: Api
-          Properties:
-            Path: /fwaas/v1/inventory/update
-            Method: put
-            RestApiId: !Ref ServerlessApi
       VpcConfig:
         SecurityGroupIds:
           - sg-045a3e0c70d593a9e
@@ -194,41 +172,77 @@ Resources:
           - subnet-9065e1cd
           - subnet-24c4f80f
 
-  DeleteFilterFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda_handlers/delete_filter_License/
-      Handler: app.lambda_handler
-      Runtime: python3.9
-      Architectures:
-        - x86_64
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref LicenseDBTable
-          REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
-          REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
-          AsyncSQSQueue: !Ref AsyncSQS
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref LicenseDBTable
-        - AmazonSQSFullAccess
-        - AmazonElastiCacheFullAccess
-      Events:
-        LicenseApiEvent:
-          Type: Api
-          Properties:
-            Path: /fwaas/v1/inventory/delete
-            Method: delete
-            RestApiId: !Ref ServerlessApi
-      VpcConfig:
-        SecurityGroupIds:
-          - sg-045a3e0c70d593a9e
-          - sg-ab209c8d
-        SubnetIds:
-          - subnet-c7c471bf
-          - subnet-232afd69
-          - subnet-9065e1cd
-          - subnet-24c4f80f
+#  PutFilterFunction:
+#    Type: AWS::Serverless::Function
+#    Properties:
+#      CodeUri: lambda_handlers/update_filter_License/
+#      Handler: app.lambda_handler
+#      Runtime: python3.9
+#      Architectures:
+#        - x86_64
+#      Environment:
+#        Variables:
+#          TABLE_NAME: !Ref LicenseDBTable
+#          REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
+#          REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
+#          AsyncSQSQueue: !Ref AsyncSQS
+#      Policies:
+#        - DynamoDBCrudPolicy:
+#            TableName: !Ref LicenseDBTable
+#        - AmazonSQSFullAccess
+#        - AmazonElastiCacheFullAccess
+#      Events:
+#        LicenseApiEvent:
+#          Type: Api
+#          Properties:
+#            Path: /fwaas/v1/inventory/update
+#            Method: put
+#            RestApiId: !Ref ServerlessApi
+#      VpcConfig:
+#        SecurityGroupIds:
+#          - sg-045a3e0c70d593a9e
+#          - sg-ab209c8d
+#        SubnetIds:
+#          - subnet-c7c471bf
+#          - subnet-232afd69
+#          - subnet-9065e1cd
+#          - subnet-24c4f80f
+
+#  DeleteFilterFunction:
+#    Type: AWS::Serverless::Function
+#    Properties:
+#      CodeUri: lambda_handlers/delete_filter_License/
+#      Handler: app.lambda_handler
+#      Runtime: python3.9
+#      Architectures:
+#        - x86_64
+#      Environment:
+#        Variables:
+#          TABLE_NAME: !Ref LicenseDBTable
+#          REDIS_HOST: !GetAtt ElasticacheCluster.RedisEndpoint.Address
+#          REDIS_PORT: !GetAtt ElasticacheCluster.RedisEndpoint.Port
+#          AsyncSQSQueue: !Ref AsyncSQS
+#      Policies:
+#        - DynamoDBCrudPolicy:
+#            TableName: !Ref LicenseDBTable
+#        - AmazonSQSFullAccess
+#        - AmazonElastiCacheFullAccess
+#      Events:
+#        LicenseApiEvent:
+#          Type: Api
+#          Properties:
+#            Path: /fwaas/v1/inventory
+#            Method: post
+#            RestApiId: !Ref ServerlessApi
+#      VpcConfig:
+#        SecurityGroupIds:
+#          - sg-045a3e0c70d593a9e
+#          - sg-ab209c8d
+#        SubnetIds:
+#          - subnet-c7c471bf
+#          - subnet-232afd69
+#          - subnet-9065e1cd
+#          - subnet-24c4f80f
 
   PostFunctionPermission:
     Type: AWS::Lambda::Permission
@@ -237,19 +251,19 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
 
-  PutFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref PutFilterFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
+#  PutFunctionPermission:
+#    Type: AWS::Lambda::Permission
+#    Properties:
+#      FunctionName: !Ref PutFilterFunction
+#      Action: lambda:InvokeFunction
+#      Principal: apigateway.amazonaws.com
 
-  DeleteFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref DeleteFilterFunction
-      Principal: apigateway.amazonaws.com
+#  DeleteFunctionPermission:
+#    Type: AWS::Lambda::Permission
+#    Properties:
+#      Action: lambda:InvokeFunction
+#      FunctionName: !Ref DeleteFilterFunction
+#      Principal: apigateway.amazonaws.com
 
   FilterLicenseItemGetFuncion:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
@@ -326,12 +340,12 @@ Resources:
     Properties:
       TableName: LicenseDBTable
       AttributeDefinitions:
-        - AttributeName: account_id
+        - AttributeName: owner_id
           AttributeType: S
         - AttributeName: sort_key
           AttributeType: S
       KeySchema:
-        - AttributeName: account_id
+        - AttributeName: owner_id
           KeyType: HASH
         - AttributeName: sort_key
           KeyType: RANGE
@@ -422,18 +436,18 @@ Outputs:
   PostFilterFunctionIamRole:
     Description: Implicit IAM Role created for Filter License Function
     Value: !GetAtt PostFilterFunctionRole.Arn
-  PutFilterFunction:
-    Description: Update the Filtered License on basis of item
-    Value: !GetAtt PutFilterFunction.Arn
-  PutFilterFunctionIamRole:
-    Description: Implicit IAM Role for update Filter License Function
-    Value: !GetAtt PutFilterFunctionRole.Arn
-  DeleteFilterFunction:
-    Description: Delete the Filtered License on basis of item
-    Value: !GetAtt DeleteFilterFunction.Arn
-  DeleteFilterFunctionIamRole:
-    Description: Implicit IAM Role created for delete Filter License Function
-    Value: !GetAtt DeleteFilterFunctionRole.Arn
+#  PutFilterFunction:
+#    Description: Update the Filtered License on basis of item
+#    Value: !GetAtt PutFilterFunction.Arn
+#  PutFilterFunctionIamRole:
+#    Description: Implicit IAM Role for update Filter License Function
+#    Value: !GetAtt PutFilterFunctionRole.Arn
+#  DeleteFilterFunction:
+#    Description: Delete the Filtered License on basis of item
+#    Value: !GetAtt DeleteFilterFunction.Arn
+#  DeleteFilterFunctionIamRole:
+#    Description: Implicit IAM Role created for delete Filter License Function
+#    Value: !GetAtt DeleteFilterFunctionRole.Arn
   SNStopicName:
     Description: SNS topic name
     Value: !GetAtt LicenseSNS.TopicName

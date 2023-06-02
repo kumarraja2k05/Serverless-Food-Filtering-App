@@ -8,6 +8,7 @@ sns_client = boto3.client("sns", "us-west-2")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+
 def lambda_handler(event, context):
     try:
         payload = json.loads(event.get('body'))
@@ -28,5 +29,4 @@ def lambda_handler(event, context):
             "statusCode": 502,
             "body": json.dumps({"error": str(e)})
         }
-        
-    
+
